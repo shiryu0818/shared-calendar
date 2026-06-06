@@ -1,0 +1,73 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String                @id @default(uuid())
+  username     String                @unique
+  name         String
+  email        String?               @unique
+  passwordHash String
+  color        String?
+  calendarsOwned Calendar[]          @relation("calendarOwner")
+  memberships  CalendarMember[]
+  events       Event[]
+  sharedEvents EventSharedUser[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+}
+
+model Calendar {
+  id         String           @id @default(uuid())
+  name       String
+  ownerId    String
+  owner      User             @relation("calendarOwner", fields: [ownerId], references: [id])
+  members    CalendarMember[]
+  events     Event[]
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+}
+
+model CalendarMember {
+  id         String   @id @default(uuid())
+  calendar   Calendar @relation(fields: [calendarId], references: [id])
+  calendarId String
+  user       User     @relation(fields: [userId], references: [id])
+  userId     String
+  role       String
+
+  @@unique([calendarId, userId])
+}
+
+model Event {
+  id          String             @id @default(uuid())
+  calendar    Calendar           @relation(fields: [calendarId], references: [id])
+  calendarId  String
+  user        User               @relation(fields: [userId], references: [id])
+  userId      String
+  date        DateTime
+  type        String
+  title       String
+  memo        String?
+  tag         String?
+  color       String?
+  visibility  String
+  sharedUsers EventSharedUser[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model EventSharedUser {
+  id      String @id @default(uuid())
+  event   Event  @relation(fields: [eventId], references: [id])
+  eventId String
+  user    User   @relation(fields: [userId], references: [id])
+  userId  String
+
+  @@unique([eventId, userId])
+}

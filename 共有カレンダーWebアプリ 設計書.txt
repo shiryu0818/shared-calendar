@@ -1,0 +1,485 @@
+共有カレンダーWebアプリ 設計書（初版）
+
+1. システム概要
+
+目的:複数ユーザーで共有できる「カレンダー形式」のWebアプリ。各ユーザーが以下を登録できる：
+
+予定（schedule）
+
+休み（off）
+
+メモ（memo）
+
+各イベントごとに
+
+内容（タイトル・詳細・タグ・色）
+
+公開範囲（共有する／しない／一部ユーザーのみ） を設定可能
+
+2. 技術スタック
+
+2.1 フロントエンド（モダン構成）
+
+Next.js（React + TypeScript）
+
+UIライブラリ：MUI または Tailwind CSS
+
+カレンダーUI：FullCalendar（React版）
+
+状態管理：React Query or Zustand
+
+認証：JWT + Cookie（HTTP Only）
+
+2.2 バックエンド
+
+Node.js + NestJS（TypeScript）
+
+もしくは Express でも可（ここでは NestJS 前提で記述）
+
+API形式：REST（将来GraphQL拡張も可）
+
+認証：JWT（アクセストークン＋リフレッシュトークン）
+
+2.3 データベース（Web上で稼働）
+
+PostgreSQL（Supabase / Railway / Render などのマネージドDB）
+
+マイグレーション：Prisma or TypeORM
+
+2.4 ホスティング
+
+フロント：Vercel
+
+バックエンド：Railway / Render
+
+DB：Supabase（PostgreSQL）
+
+3. 機能要件
+
+3.1 ユーザー関連
+
+ユーザー登録（メール＋パスワード）
+
+ログイン／ログアウト
+
+プロフィール（名前、表示色など）
+
+3.2 カレンダー・イベント関連
+
+月間カレンダー表示
+
+日付ごとのイベント一覧表示
+
+イベント種別：
+
+schedule（予定）
+
+off（休み）
+
+memo（メモ）
+
+イベント項目：
+
+日付
+
+種別
+
+タイトル
+
+詳細メモ
+
+タグ
+
+色
+
+公開範囲（visibility）
+
+public：全員に表示
+
+private：自分だけ
+
+custom：特定ユーザーのみ
+
+3.3 共有カレンダー
+
+複数カレンダーの作成（例：家族用、チーム用）
+
+カレンダーごとのメンバー管理
+
+カレンダー単位での表示切り替え
+
+4. 画面設計（概要）
+
+4.1 ログイン画面
+
+メール
+
+パスワード
+
+「新規登録はこちら」リンク
+
+4.2 メイン画面（カレンダー）
+
+カレンダー（月表示）
+
+前月／翌月ボタン
+
+カレンダー切り替え（プルダウン）
+
+各日付セル：
+
+公開対象のイベントのみ表示
+
+イベントは色付きラベルで表示
+
+日付クリック → 「イベント一覧＋追加」モーダル
+
+4.3 イベント登録／編集モーダル
+
+日付
+
+種別（予定／休み／メモ）
+
+タイトル
+
+詳細メモ
+
+タグ（任意）
+
+色（任意）
+
+公開範囲（ラジオボタン）
+
+public
+
+private
+
+custom（ユーザー複数選択UI）
+
+5. データベース設計
+
+5.1 テーブル一覧
+
+users
+
+calendars
+
+calendar_members
+
+events
+
+event_shared_users
+
+5.2 users
+
+カラム
+
+型
+
+説明
+
+id
+
+uuid
+
+PK
+
+name
+
+varchar
+
+表示名
+
+email
+
+varchar
+
+ログイン用（Unique）
+
+password_hash
+
+varchar
+
+ハッシュ済みPW
+
+created_at
+
+timestamp
+
+
+
+updated_at
+
+timestamp
+
+
+
+5.3 calendars
+
+カラム
+
+型
+
+説明
+
+id
+
+uuid
+
+PK
+
+name
+
+varchar
+
+カレンダー名
+
+owner_id
+
+uuid
+
+作成者（FK→users）
+
+created_at
+
+timestamp
+
+
+
+updated_at
+
+timestamp
+
+
+
+5.4 calendar_members
+
+カラム
+
+型
+
+説明
+
+id
+
+uuid
+
+PK
+
+calendar_id
+
+uuid
+
+FK → calendars.id
+
+user_id
+
+uuid
+
+FK → users.id
+
+role
+
+enum
+
+admin / member
+
+5.5 events
+
+カラム
+
+型
+
+説明
+
+id
+
+uuid
+
+PK
+
+calendar_id
+
+uuid
+
+FK → calendars.id
+
+user_id
+
+uuid
+
+登録者（FK → users.id）
+
+date
+
+date
+
+日付
+
+type
+
+enum
+
+schedule / off / memo
+
+title
+
+varchar
+
+タイトル
+
+memo
+
+text
+
+詳細
+
+tag
+
+varchar
+
+タグ（任意）
+
+color
+
+varchar
+
+表示色（#RRGGBB）
+
+visibility
+
+enum
+
+public / private / custom
+
+created_at
+
+timestamp
+
+
+
+updated_at
+
+timestamp
+
+
+
+5.6 event_shared_users（custom共有用）
+
+カラム
+
+型
+
+説明
+
+id
+
+uuid
+
+PK
+
+event_id
+
+uuid
+
+FK → events.id
+
+user_id
+
+uuid
+
+共有対象ユーザー（FK→users）
+
+6. API設計（REST）
+
+6.1 認証
+
+POST /auth/register
+
+入力：name, email, password
+
+出力：ユーザー情報＋トークン
+
+POST /auth/login
+
+入力：email, password
+
+出力：ユーザー情報＋トークン
+
+6.2 カレンダー
+
+GET /calendars
+
+自分がメンバーのカレンダー一覧
+
+POST /calendars
+
+カレンダー作成（owner = 自分）
+
+GET /calendars/:id/membersPOST /calendars/:id/members
+
+6.3 イベント
+
+GET /calendars/:id/events?month=2026-06
+
+返却ルール：
+
+visibility = public → 常に返す
+
+visibility = private → user_id = 自分 のみ返す
+
+visibility = custom → event_shared_users に自分が含まれる場合のみ返す
+
+POST /events
+
+{
+  "calendar_id": "uuid",
+  "date": "2026-06-10",
+  "type": "memo",
+  "title": "買い物メモ",
+  "memo": "牛乳・卵",
+  "tag": "家事",
+  "color": "#FFAA00",
+  "visibility": "custom",
+  "shared_user_ids": ["user-uuid-1", "user-uuid-2"]
+}
+
+PUT /events/:idDELETE /events/:id
+
+7. 非機能要件（簡易）
+
+セキュリティ
+
+JWT + HTTP Only Cookie
+
+パスワードはハッシュ化（bcrypt）
+
+パフォーマンス
+
+月単位取得を基本とし、日付範囲でのクエリ最適化
+
+拡張性
+
+将来的に：
+
+通知機能
+
+Googleカレンダー連携
+
+シフト自動生成 などを追加可能な構造
+
+8. 開発フロー（ざっくり）
+
+DBスキーマ定義（Prisma/TypeORM）
+
+NestJSでAPI実装（認証 → カレンダー → イベント）
+
+Next.jsでフロント実装（認証 → カレンダー表示 → イベントCRUD）
+
+SupabaseにDB構築
+
+バックエンドをRailway/Renderへデプロイ
+
+フロントをVercelへデプロイ
+
+動作確認＆調整
